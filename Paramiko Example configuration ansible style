@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+
+"""
+Purpose: Demonstrate using SSH via paramiko to configure network devices.
+"""
+
+import time
+import paramiko
+from yaml import safe_load
+from jinja2 import Environment, FileSystemLoader
+
+
+def send_cmd(conn, command):
+    """
+    Given an open connection and a command, issue the command and wait
+    1 second for the command to be processed. Sometimes this has to be
+    increased, can be very tricky!
+    """
+    output = conn.send(command + "\n")
+    time.sleep(1.0)
+    return output
+
+
+def get_output(conn):
+    """
+    Given an open connection, read all the data from the buffer and
+    decode the byte string as UTF-8.
+    """
+    return conn.recv(65535).decode("utf-8")
+
+
+def main():
+    """
+    Execution starts here.
+    """
+
+    # Read the hosts file into structured data, may raise YAMLError
+    with open("hosts.yml" , "r") as handle:
+        host_root = safe_load(handle)
+        print(host_root)
+
+    # Iterate over the list of hosts (list of dictionaries)
+    for host in host_root["host_list"]:
+        with open("vars/" + str(host['name'])+ "_vrfs.yml" , "r") as handle:
+           vrfs = safe_load(handle)
+
+        # Setup the jinja2 templating environment and render the template
+        j2_env = Environment(
+            loader=FileSystemLoader("."), trim_blocks=True, autoescape=True
+        )
+        template = j2_env.get_template(
+            "templates/paramiko/" + host['platform']+ "_vpn.j2"
+        )
+        new_vrf_config = template.render(data=vrfs)
+
+        # Create paramiko SSH client to connect to the device
+        conn_params = paramiko.SSHClient()
+        conn_params.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        conn_params.connect(
+            hostname=host["name"],
+            port=22,
+            username="vik",
+            password="root",
+            look_for_keys=False,
+            allow_agent=False,
+        )
+
+        # Start an interactive shell and collect the prompt
+        conn = conn_params.invoke_shell()
+        time.sleep(1.0)
+        print("Logged into {get_output(conn).strip()} successfully")
+
+        # Send the configuration string to the device
+        print(new_vrf_config)
+        send_cmd(conn, new_vrf_config)
+        print("Updated {host['name']} VRF configuration")
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()
+    
+===============================================================================================
+
+root@eve-ng:/etc/ansible/paramiko# cat hosts.yml
+---
+host_list:
+  - name: 192.168.226.201
+    vrf_cmd: "show running-config | section vrf_def"
+    platform: ios
+  - name: 192.168.226.201
+    vrf_cmd: "show running-config vrf"
+    platform: iosxr
+    file_system: "disk0:"
+=======================================================================================================
+Template:-
+
+root@eve-ng:/etc/ansible/paramiko# cat templates/paramiko/ios_vpn.j2
+configure terminal
+{% for vrf in data.vrfs %}
+vrf definition {{ vrf.name }}
+ rd {{ vrf.rd }}
+ description {{ vrf.description }}
+{%  for rt in vrf.route_export %}
+ route-target export {{ rt }}
+{%  endfor %}
+{%  for rt in vrf.route_import %}
+ route-target import {{ rt }}
+{%  endfor %}
+{% endfor %}
+end
+write memory
+root@eve-ng:/etc/ansible/paramiko# cat templates/paramiko/iosxr_vpn.j2
+configure terminal
+{% for vrf in data.vrfs %}
+vrf {{ vrf.name }}
+ description {{ vrf.description }}
+ address-family ipv4 unicast
+  import route-target
+{%  for rt in vrf.route_import %}
+   {{ rt }}
+{%  endfor %}
+  export route-target
+{%  for rt in vrf.route_export %}
+   {{ rt }}
+{%  endfor %}
+{% endfor %}
+commit
+end
+============================================================================================================
+
+root@eve-ng:/etc/ansible/paramiko# cat vars/192.168.226.201_vrfs.yml
+---
+vrfs:
+  - name: "POLICE"
+    description: "POLICE DEPARTMENT"
+    rd: "65000:1"
+    route_import:
+      - "65000:1"
+    route_export:
+      - "65000:1"
+  - name: "CHEMICAL"
+    description: "CHEMICAL ENGINEERING FIRM"
+    rd: "65000:2"
+    route_import:
+      - "65000:2"
+    route_export:
+      - "65000:2"
+  - name: "CHEM_MGMT"
+    description: "CHEMICAL ENGINEERING MANAGER"
+    rd: "65000:3"
+    route_import:
+      - "65000:4"
+    route_export:
+      - "65000:3"
+
+
