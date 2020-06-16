@@ -1,0 +1,59 @@
+root@eve-ng:/etc/ansible/yang_big/vendor/cisco/xr/613# pyang --format tree openconfig-bgp.yang
+openconfig-bgp.yang:428: error: restriction "require-instance" not allowed for this base type
+module: openconfig-bgp
+  +--rw bgp!  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Container
+     +--rw global >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Container
+     |  +--rw config >>>>>>>>>>>>>>>>>>>>>>>>>>>>. Container
+     |  |  +--rw as           inet:as-number  >>>>>> Key
+     |  |  +--rw router-id?   inet:ipv4-address >>>>>>> key
+     |  +--ro state
+     |  |  +--ro as                inet:as-number
+     |  |  +--ro router-id?        inet:ipv4-address
+     |  |  +--ro total-paths?      uint32
+     |  |  +--ro total-prefixes?   uint32
+     |  +--rw route-selection-options
+     |  |  +--rw config
+     |  |  |  +--rw always-compare-med?           boolean
+     |  |  |  +--rw ignore-as-path-length?        boolean
+     |  |  |  +--rw external-compare-router-id?   boolean
+     |  |  |  +--rw advertise-inactive-routes?    boolean
+     |  |  |  +--rw enable-aigp?                  boolean
+     |  |  |  +--rw ignore-next-hop-igp-metric?   boolean
+     |  |  +--ro state
+
+=================================================================================================================
+
+# All API calls are leaverged from yang explorer
+from ncclient import manager
+import xmltodict
+import xml.dom.minidom
+from pprint import pprint
+
+device = manager.connect(host='192.168.226.201', port=22, username='vik',
+                         password='root', hostkey_verify=False,
+                         device_params={'name': 'iosxr'}, allow_agent=False,
+                         look_for_keys=False)
+file1 = open('capability.txt','w')
+for capability in device.server_capabilities:
+    #print('*' * 50)
+    #print(capability)
+    file1.write(capability)
+    
+
+
+get_filter = """
+<config>
+<bgp xmlns="http://openconfig.net/yang/bgp">
+     <global>
+     <config>
+     <as>1</as>
+     <router-id>6.6.6.6</router-id>
+     </config>
+     </global>
+</bgp>
+</config>
+"""
+
+
+nc_get_reply = device.edit_config(target = 'candidate',config = get_filter)
+device.commit()
