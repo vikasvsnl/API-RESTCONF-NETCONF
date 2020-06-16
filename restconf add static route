@@ -1,0 +1,125 @@
+#!/usr/bin/env python
+
+"""
+Purpose: Using RESTCONF with IOS-XE specific YANG models to add static
+routes on a Cisco IOS-XE router via the always-on Cisco DevNet sandbox.
+"""
+
+import requests
+import yaml
+
+
+def main():
+    """
+    Execution begins here.
+    """
+
+    # The IOS-XE sandbox uses a self-signed cert at present, so let's
+    # ignore any obvious security warnings for now.
+    requests.packages.urllib3.disable_warnings()
+
+    # The API path below is what the DevNet sandbox uses for API testing,
+    # which may change in the future. Be sure to check the IP address as
+    # I suspect this changes frequently. See here for more details:
+    # https://developer.cisco.com/site/ios-xe
+    api_path = "https://ios-xe-mgmt-latest.cisco.com:9443/restconf"
+
+    # Create 2-tuple for "basic" authentication using Cisco DevNet credentials.
+    # No fancy tokens needed to get basic RESTCONF working on Cisco IOS-XE.
+    auth = ("developer", "C1sco12345")
+
+    # Read YAML declarative state with list of static routes to add
+    with open("static_route.yml", "r") as handle:
+        config_state = yaml.safe_load(handle)
+
+    # Define headers for issuing HTTP POST requests to carry JSON data
+    post_headers = {
+        "Content-Type": "application/yang-data+json",
+        "Accept": "application/yang-data+json, application/yang-data.errors+json",
+    }
+
+    # Issue a POST request to add new static routes. This will
+    # return a list of dictionaries where each dictionary represents a route.
+    static_route_add_url = (
+        api_path + "/data/ietf-routing:routing/routing-instance=default/routing-protocols/routing-protocol=static,1/static-routes/ipv4"
+    )
+
+    add_rte_resp = requests.post(
+        static_route_add_url,
+        headers=post_headers,
+        auth=auth,
+        json=config_state,
+        verify=False,
+    )
+
+    # Good: 201 CREATED means routes were added
+    # Bad: 409 CONFLICT means some routes already exist, cannot overwrite
+    # Ugly: Other unexpected messages like 401, 404, etc
+    if add_rte_resp.status_code == 201:
+        print("Added new static routes successfully")
+    elif add_rte_resp.status_code == 409:
+        print("At least one static route already exists")
+    else:
+        print("Unexpected {add_rte_resp.status_code}")
+
+
+if __name__ == "__main__":
+    main()
+=================================================================================================
+
+Yang Tree:-
+
+module: ietf-routing
+  +--ro routing-state
+  |  +--ro routing-instance* [name]
+  |     +--ro name                 string
+  |     +--ro type?                identityref
+  |     +--ro router-id?           yang:dotted-quad
+  |     +--ro interfaces
+  |     |  +--ro interface*   if:interface-state-ref
+  |     +--ro routing-protocols
+  |     |  +--ro routing-protocol* [type name]
+  |     |     +--ro type    identityref
+  |     |     +--ro name    string
+  |     +--ro ribs
+  |        +--ro rib* [name]
+  |           +--ro name              string
+  |           +--ro address-family    identityref
+  |           +--ro default-rib?      boolean {multiple-ribs}?
+  |           +--ro routes
+  |              +--ro route* [destination-prefix]
+  |                 +--ro route-preference?     route-preference
+  |                 +--ro destination-prefix    string
+  |                 +--ro metric?               uint32
+  |                 +--ro next-hop
+  |                 |  +--ro (next-hop-options)
+  |                 |     +--:(simple-next-hop)
+  |                 |     |  +--ro outgoing-interface?   string
+  |                 |     |  +--ro next-hop-address?     string
+  |                 |     +--:(special-next-hop)
+  |                 |        +--ro special-next-hop?     enumeration
+  |                 +--ro source-protocol       identityref
+  |                 +--ro active?               empty
+  |                 +--ro last-updated?         yang:date-and-time
+  |                 +--ro update-source?        string
+  +--rw routing
+     +--rw routing-instance* [name]
+        +--rw name                 string
+        +--rw type?                identityref
+        +--rw enabled?             boolean
+        +--rw router-id?           yang:dotted-quad {router-id}?
+        +--rw description?         string
+        +--rw interfaces
+        |  +--rw interface*   if:interface-ref
+        +--rw routing-protocols >>>>>>>>>>>>>>>>>>>>
+        |  +--rw routing-protocol* [type name] >>>>>>>>>>>>>>>>>
+        |     +--rw type             identityref
+        |     +--rw name             string
+        |     +--rw description?     string
+        |     +--rw static-routes            >>>>>>>>>>>>>>>>>>>>>>>>>
+        +--rw ribs
+           +--rw rib* [name]
+              +--rw name              string
+              +--rw address-family?   identityref
+              +--rw description?      string
+
