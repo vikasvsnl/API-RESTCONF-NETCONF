@@ -1,0 +1,61 @@
+"""
+Created on Mon Jun 15 18:38:10 2020
+
+@author: Synophic
+"""
+
+# All API calls are leaverged from yang explorer
+from ncclient import manager
+import xmltodict
+import xml.dom.minidom
+from pprint import pprint
+
+device = manager.connect(host='192.168.226.201', port=22, username='vik',
+                         password='root', hostkey_verify=False,
+                         device_params={'name': 'iosxr'}, allow_agent=False,
+                         look_for_keys=False)
+file1 = open('capability.txt','w')
+for capability in device.server_capabilities:
+    #print('*' * 50)
+    #print(capability)
+    file1.write(capability)
+    
+
+
+get_filter = """
+<config>
+<mpls-ldp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XR-mpls-ldp-cfg">
+<default-vrf>
+     <interfaces>
+     <interface>
+     <enable></enable>
+     <interface-name>GigabitEthernet0/0/0/0</interface-name>
+     </interface>
+     </interfaces>
+     </default-vrf>
+</mpls-ldp>
+</config>
+
+"""
+
+
+nc_get_reply = device.edit_config(target = 'candidate',config = get_filter)
+device.commit()
+
+==================================================================
+
+module: Cisco-IOS-XR-mpls-ldp-cfg
+  +--rw mpls-ldp
+     +--rw default-vrf
+ |     +--rw interfaces
+     |     |  +--rw interface* [interface-name]
+     |     |     +--rw afs
+     |     |     |  +--rw af* [af-name]
+     |     |     |     +--rw discovery
+     |     |     |     |  +--rw transport-address
+     |     |     |     |     +--rw address-type?   Mpls-ldp-transport-address
+     |     |     |     |     +--rw address?        inet:ip-address-no-zone
+     |     |     |     +--rw enable?      empty
+     |     |     |     +--rw af-name      Mpls-ldpaf-name
+     |     |     +--rw enable?           empty
+     |     |     +--rw interface-name    xr:Interface-name
