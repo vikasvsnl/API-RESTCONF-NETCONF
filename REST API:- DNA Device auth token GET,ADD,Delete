@@ -1,0 +1,256 @@
+Step:- For AUTH TOKEN
+
+#!/usr/bin/env python
+
+"""
+Purpose: Demonstrate Python "requests" to get an access token
+from Cisco DNA Center using the REST API.
+"""
+
+import requests
+
+
+def get_token():
+    """
+    Gets an access token from Cisco DNA Center. Returns the token
+    string if successful; raises HTTPError otherwise.
+    """
+
+    # Declare useful local variables to simplify request process
+    api_path = "https://sandboxdnac.cisco.com/dna"
+    auth = ("devnetuser", "Cisco123!")
+    headers = {"Content-Type": "application/json"}
+
+    # Issue HTTP POST request to the proper URL to request a token
+    auth_resp = requests.post(
+        api_path + "/system/api/v1/auth/token", auth=auth, headers=headers
+    )
+
+    # If successful, print token. Else, raise HTTPError with details
+    auth_resp.raise_for_status()
+    token = auth_resp.json()["Token"]
+    return token
+
+
+def main():
+    """
+    Execution begins here.
+    """
+
+    token = get_token()
+    print(token)
+
+
+if __name__ == "__main__":
+    main()
+========================================================================================================
+
+GET DEVICES :-
+
+(virtual_env37) root@eve-ng:/etc/ansible/paramiko/virtual_env37/bin# cat get_devices.py
+#!/usr/bin/env python
+
+"""
+Purpose: Demonstrate Python "requests" to get the list of
+devices from Cisco DNA Center using the REST API.
+"""
+
+import requests
+from auth_token import get_token
+
+
+def main():
+    """
+    Execution begins here.
+    """
+
+    # Reuse the get_token() function from before. If it fails
+    # allow exception to crash program
+    token = get_token()
+
+    # Declare useful local variables to simplify request process
+    api_path = "https://sandboxdnac.cisco.com/dna"
+    headers = {"Content-Type": "application/json", "X-Auth-Token": token}
+
+    # Issue HTTP GET request to get list of network devices
+    get_resp = requests.get(
+        api_path + "/intent/api/v1/network-device", headers=headers
+    )
+
+    # Debugging output to learn the JSON structure, then quit
+    import json
+    print(json.dumps(get_resp.json(), indent=2))
+
+    # Iterate over list of dictionaries and print device ID and management IP
+    if get_resp.ok:
+        for device in get_resp.json()["response"]:
+            print("ID: " + device['id'] + " IP: " + device['managementIpAddress'])
+    else:
+        print("Device collection failed with code " + get_resp.status_code)
+        print("Failure body: " + get_resp.text)
+
+
+if __name__ == "__main__":
+    main()
+===========================================================================================================
+
+ADD DEVICE:-
+
+#!/usr/bin/env python
+
+"""
+Purpose: Demonstrate Python "requests" to add a new device
+to Cisco DNA Center using the REST API.
+"""
+
+import time
+import requests
+from auth_token import get_token
+
+
+def main():
+    """
+    Execution begins here.
+    """
+
+    # Reuse the get_token() function from before. If it fails
+    # allow exception to crash program
+    token = get_token()
+
+    # Declare useful local variables to simplify request process
+    api_path = "https://sandboxdnac.cisco.com/dna"
+    headers = {"Content-Type": "application/json", "X-Auth-Token": token}
+
+    # Create a dictionary to represent the new device to add
+    new_device_dict = {
+        "ipAddress": ["192.0.2.1"],
+        "snmpVersion": "v2",
+        "snmpROCommunity": "readonly",
+        "snmpRWCommunity": "readwrite",
+        "snmpRetry": "1",
+        "snmpTimeout": "60",
+        "cliTransport": "ssh",
+        "userName": "nick",
+        "password": "secret123!",
+        "enablePassword": "secret456!",
+    }
+
+    # Issue HTTP POST request to add a new device with the
+    # "new_device_dict" as the body of the request.
+    add_resp = requests.post(
+        api_path + "/intent/api/v1/network-device",
+        json=new_device_dict,
+        headers=headers,
+    )
+
+    if add_resp.ok:
+
+        # Wait 10 seconds after server responds
+        print("Request accepted: status code " + add_resp.status_code)
+        time.sleep(10)
+
+        # Query DNA center for the status of the specific task ID
+        task = add_resp.json()["response"]["taskId"]
+        task_resp = requests.get(
+            api_path + "/intent/api/v1/task/{task}", headers=headers
+        )
+
+        # See if the task was completed successfully or not
+        if task_resp.ok:
+            task_data = task_resp.json()["response"]
+            if not task_data["isError"]:
+                print("New device successfully added")
+            else:
+                print("Async task error seen: " + task_data['progress'])
+        else:
+            print("Async GET failed: status code " + str(task_resp.status_code))
+
+    else:
+        # The initial HTTP POST failed; print details
+        print("Device addition failed with code "+  str(add_resp.status_code))
+        print("Failure body: " + str(add_resp.text))
+
+
+if __name__ == "__main__":
+    main()
+====================================================================================================================
+
+#!/usr/bin/env python
+
+""
+Purpose: Demonstrate Python "requests" to delete an existing
+device from Cisco DNA Center using the REST API.
+"""
+
+import time
+import requests
+from auth_token import get_token
+
+
+def main():
+    """
+    Execution begins here.
+    """
+
+    # Reuse the get_token() function from before. If it fails
+    # allow exception to crash program
+    token = get_token()
+
+    # Declare useful local variables to simplify request process
+    api_path = "https://sandboxdnac.cisco.com/dna"
+    headers = {"Content-Type": "application/json", "X-Auth-Token": token}
+
+    # Issue an HTTP GET to search for a specific device by IP address
+    delete_ip = "192.0.2.1"
+    get_resp = requests.get(
+        f"{api_path}/intent/api/v1/network-device/ip-address/{delete_ip}",
+        headers=headers,
+    )
+
+    # If the device was found, continue with deletion
+    if get_resp.ok:
+        delete_id = get_resp.json()["response"]["id"]
+        print(f"Found device with mgmt IP {delete_ip} and ID {delete_id}")
+
+        # Issue HTTP DELETE and specify the device ID. Like the HTTP POST
+        # to add a device, this is an asynchronous operation
+        delete_resp = requests.delete(
+            f"{api_path}/intent/api/v1/network-device/{delete_id}",
+            headers=headers,
+        )
+
+        # If delete succeeded, check task ID for completion
+        if delete_resp.ok:
+
+            # Wait 10 seconds after server responds
+            print(f"Request accepted: status code {delete_resp.status_code}")
+            time.sleep(10)
+
+            # Query DNA center for the status of the specific task ID
+            task = delete_resp.json()["response"]["taskId"]
+            task_resp = requests.get(
+                f"{api_path}/intent/api/v1/task/{task}", headers=headers
+            )
+
+            # See if the task was completed successfully or not
+            if task_resp.ok:
+                task_data = task_resp.json()["response"]
+                if not task_data["isError"]:
+                    print("Old device successfully deleted")
+                else:
+                    print(f"Async task error seen: {task_data['progress']}")
+            else:
+                print(f"Async GET failed: status code {task_resp.status_code}")
+
+        else:
+            # The initial HTTP DELETE failed; print details
+            print(f"Device removal failed with code {delete_resp.status_code}")
+            print(f"Failure body: {delete_resp.text}")
+
+    else:
+        print(f"Could not find device with mgmt IP {delete_ip}")
+        print(f"Code: {get_resp.status_code}  Body: {get_resp.text}")
+
+
+if __name__ == "__main__":
+    main()
