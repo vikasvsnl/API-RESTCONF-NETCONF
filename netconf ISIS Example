@@ -1,0 +1,164 @@
+from ncclient import manager
+import xmltodict
+import xml.dom.minidom
+from pprint import pprint
+
+device = manager.connect(host='192.168.226.201', port=22, username='vik',
+                         password='root', hostkey_verify=False,
+                         device_params={'name': 'iosxr'}, allow_agent=False,
+                         look_for_keys=False)
+file1 = open('capability.txt','w')
+for capability in device.server_capabilities:
+    #print('*' * 50)
+    #print(capability)
+    file1.write(capability)
+    
+
+
+get_filter = """
+<isis xmlns="http://cisco.com/ns/yang/Cisco-IOS-XR-clns-isis-oper">
+     <instances>
+     <instance>
+     <host-names>
+     <host-name></host-name>
+     </host-names>
+     </instance>
+     </instances>
+</isis>
+
+"""
+
+
+nc_get_reply = device.get(('subtree', get_filter))
+
+A = nc_get_reply
+print(A)
+
+================================================================================
+
+Output:-
+
+<?xml version="1.0"?>
+<rpc-reply message-id="urn:uuid:05e3b13a-777a-4ce7-96c5-ec6503121e80" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+ <data>
+  <isis xmlns="http://cisco.com/ns/yang/Cisco-IOS-XR-clns-isis-oper">
+   <instances>
+    <instance>
+     <instance-name>ACCESS</instance-name>
+     <host-names>
+      <host-name>
+       <system-id>0006.0006.0006</system-id>
+       <local-is-flag>true</local-is-flag>
+       <host-levels>isis-levels-2</host-levels>
+       <host-name>XR6</host-name>
+      </host-name>
+     </host-names>
+    </instance>
+   </instances>
+  </isis>
+ </data>
+</rpc-reply>
+
+===========================================================================================================================
+
+Tree:-
+
+module: Cisco-IOS-XR-clns-isis-oper
+  +--ro isis
+     +--ro instances
+        +--ro instance* [instance-name]
+           +--ro neighbors
+           |  +--ro neighbor* []
+           |     +--ro system-id?                          xr:Osi-system-id
+           |     +--ro interface-name?                     xr:Interface-name
+           |     +--ro neighbor-system-id?                 xr:Osi-system-id
+           |     +--ro neighbor-snpa?                      xr:Isis-snpa
+           |     +--ro local-interface?                    xr:Interface-name
+           |     +--ro neighbor-state?                     Isis-adj-state
+           |     +--ro neighbor-circuit-type?              Isis-levels
+           |     +--ro neighbor-ietf-nsf-capable-flag?     uint32
+           |     +--ro neighbor-media-type?                Isis-media-class
+           |     +--ro neighbor-holdtime?                  uint32
+           |     +--ro neighbor-uptime-valid-flag?         boolean
+           |     +--ro neighbor-uptime?                    uint32
+           |     +--ro nsr-standby?                        boolean
+           |     +--ro neighbor-active-area-address*       xr:Osi-area-address
+           |     +--ro topologies-supported* []
+           |     |  +--ro af-name?         Isis-af-id
+           |     |  +--ro saf-name?        Isis-sub-af-id
+           |     |  +--ro vrf-name?        string
+           |     |  +--ro topology-name?   string
+           |     +--ro neighbor-per-address-family-data* []
+           |        +--ro ipv4
+           |        |  +--ro adjacency-sid
+           |        |  |  +--ro adjacency-sid-backup
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv4-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv4-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-backup-te
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv4-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv4-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-value?       Isis-nodal-sid-value
+           |        |  +--ro non-frr-adjacency-sid
+           |        |  |  +--ro adjacency-sid-backup
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv4-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv4-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-backup-te
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv4-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv4-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-value?       Isis-nodal-sid-value
+           |        |  +--ro next-hop?                   Isis-ipv4-address
+           |        |  +--ro interface-address*          Isis-ipv4-address
+           |        |  +--ro underlying-interface*       xr:Interface-name
+           |        |  +--ro underlying-adjacency-sid*   Isis-nodal-sid-value
+           |        +--ro ipv6
+           |        |  +--ro adjacency-sid
+           |        |  |  +--ro adjacency-sid-backup
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv6-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv6-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-backup-te
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv6-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv6-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-value?       Isis-nodal-sid-value
+           |        |  +--ro non-frr-adjacency-sid
+           |        |  |  +--ro adjacency-sid-backup
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv6-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv6-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-backup-te
+           |        |  |  |  +--ro backup-label-stack-size?   uint8
+           |        |  |  |  +--ro backup-node-address?       Isis-ipv6-address
+           |        |  |  |  +--ro backup-nexthop?            Isis-ipv6-address
+           |        |  |  |  +--ro backup-interface?          xr:Interface-name
+           |        |  |  |  +--ro backup-label-stack*        uint32
+           |        |  |  +--ro adjacency-sid-value?       Isis-nodal-sid-value
+           |        |  +--ro next-hop?                   Isis-ipv6-address
+           |        |  +--ro interface-address*          Isis-ipv6-address
+           |        |  +--ro underlying-interface*       xr:Interface-name
+           |        |  +--ro underlying-adjacency-sid*   Isis-nodal-sid-value
+           |        +--ro af-name?   Isis-af-id
+           +--ro host-names
+           |  +--ro host-name* [system-id]
+           |     +--ro system-id        xr:Osi-system-id
+           |     +--ro local-is-flag?   boolean
+           |     +--ro host-levels?     Isis-levels
+           |     +--ro host-name?       string
