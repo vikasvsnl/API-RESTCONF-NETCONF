@@ -1,0 +1,143 @@
+#!/usr/bin/env python
+
+"""
+Purpose: Using RESTCONF with IOS-XE specific YANG models to collect static
+routes on a Cisco IOS-XE router via the always-on Cisco DevNet sandbox.
+"""
+
+import requests
+
+
+def main():
+    """
+    Execution begins here.
+    """
+
+    # The IOS-XE sandbox uses a self-signed cert at present, so let's
+    # ignore any obvious security warnings for now.
+    requests.packages.urllib3.disable_warnings()
+
+    # The API path below is what the DevNet sandbox uses for API testing,
+    # which may change in the future. Be sure to check the IP address as
+    # I suspect this changes frequently. See here for more details:
+    # https://developer.cisco.com/site/ios-xe
+    api_path = "https://ios-xe-mgmt-latest.cisco.com:9443/restconf"
+
+    # Create 2-tuple for "basic" authentication using Cisco DevNet credentials.
+    # No fancy tokens needed to get basic RESTCONF working on Cisco IOS-XE.
+    auth = ("developer", "C1sco12345")
+
+    # Define headers for issuing HTTP GET requests to receive YANG data as JSON.
+    get_headers = {"Accept": "application/yang-data+json"}
+
+    # Issue a GET request to collect the static routes only. This will
+    # return a list of dictionaries where each dictionary represents a route.
+    # The URL is broken over multiple lines for readability, and the "=" is
+    # used to specify specific "keys" to query individual list elements.
+    def_inst = api_path + "/data/ietf-routing:routing/routing-instance=default/"
+    static_route_proto = "routing-protocols/routing-protocol=static,1"
+    get_rte_resp = requests.get(
+        def_inst + static_route_proto,
+        headers=get_headers,
+        auth=auth,
+        verify=False,
+    )
+
+    # Uncomment the line below to see the JSON response; great for learning
+    # import json; print(json.dumps(get_rte_resp.json(), indent=2))
+
+    # Print route details in a human-readable format
+    rtes = get_rte_resp.json()["ietf-routing:routing-protocol"]["static-routes"]
+    for rte in rtes["ietf-ipv4-unicast-routing:ipv4"]["route"]:
+        # Don't need .get() for the prefix, it's the "key"
+        print("Prefix: " + rte['destination-prefix'] +  " via" + ", end=")
+
+        # Next-hop is outgoing interface, IP address, or possibly both
+        nexthop = rte["next-hop"]
+
+
+if __name__ == "__main__":
+    main()
+==================================================================================================
+
+Yang tree:-
+
+def_inst = api_path + "/data/ietf-routing:routing/routing-instance=default/"
+    static_route_proto = "routing-protocols/routing-protocol=static,1
+
+module: ietf-routing >>>>>>>>>>>>>>>>>>>>>>>>>
+  +--ro routing-state
+  |  +--ro routing-instance* [name]
+  |     +--ro name                 string
+  |     +--ro type?                identityref
+  |     +--ro router-id?           yang:dotted-quad
+  |     +--ro interfaces
+  |     |  +--ro interface*   if:interface-state-ref
+  |     +--ro routing-protocols
+  |     |  +--ro routing-protocol* [type name]
+  |     |     +--ro type    identityref
+  |     |     +--ro name    string
+  |     +--ro ribs
+  |        +--ro rib* [name]
+  |           +--ro name              string
+  |           +--ro address-family    identityref
+  |           +--ro default-rib?      boolean {multiple-ribs}?
+  |           +--ro routes
+  |              +--ro route* [destination-prefix]
+  |                 +--ro route-preference?     route-preference
+  |                 +--ro destination-prefix    string
+  |                 +--ro metric?               uint32
+  |                 +--ro next-hop
+  |                 |  +--ro (next-hop-options)
+  |                 |     +--:(simple-next-hop)
+  |                 |     |  +--ro outgoing-interface?   string
+  |                 |     |  +--ro next-hop-address?     string
+  |                 |     +--:(special-next-hop)
+  |                 |        +--ro special-next-hop?     enumeration
+  |                 +--ro source-protocol       identityref
+  |                 +--ro active?               empty
+  |                 +--ro last-updated?         yang:date-and-time
+  |                 +--ro update-source?        string
+  +--rw routing >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     +--rw routing-instance* [name] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        +--rw name                 string
+        +--rw type?                identityref
+        +--rw enabled?             boolean
+        +--rw router-id?           yang:dotted-quad {router-id}?
+        +--rw description?         string
+        +--rw interfaces
+        |  +--rw interface*   if:interface-ref
+        +--rw routing-protocols >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        |  +--rw routing-protocol* [type name]
+        |     +--rw type             identityref
+        |     +--rw name             string
+        |     +--rw description?     string
+        |     +--rw static-routes 
+        +--rw ribs
+           +--rw rib* [name]
+              +--rw name              string
+              +--rw address-family?   identityref
+              +--rw description?      string
+
+  augment /if:interfaces-state/if:interface:
+    +--ro routing-instance?   string
+
+  rpcs:
+    +---x fib-route
+       +---w input
+       |  +---w routing-instance-name    string
+       |  +---w destination-address
+       |     +---w address-family    identityref
+       +--ro output
+          +--ro route
+             +--ro address-family     identityref
+             +--ro next-hop
+             |  +--ro (next-hop-options)
+             |     +--:(simple-next-hop)
+             |     |  +--ro outgoing-interface?   string
+             |     |  +--ro next-hop-address?     string
+             |     +--:(special-next-hop)
+             |        +--ro special-next-hop?     enumeration
+             +--ro source-protocol    identityref
+             +--ro active?            empty
+             +--ro last-updated?      yang:date-and-time
