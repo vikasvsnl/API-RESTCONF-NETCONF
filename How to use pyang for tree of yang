@@ -1,0 +1,21 @@
+Step:-1
+
+Install pyang and pybind
+
+Step-2:-
+
+Git clone for repositry:-
+
+git clone https://github.com/openconfig/public.git yang_oc
+
+git clone https://github.com/YangModels/yang.git yang_big
+
+Step-3 Verification:-
+
+Go to module directory :-
+root@eve-ng:/etc/ansible/yang_big/vendor/cisco/xr/613# pwd
+/etc/ansible/yang_big/vendor/cisco/xr/613
+
+for checking tree command:-
+
+ pyang --format tree ietf-interfaces.yang>>>>>module name
