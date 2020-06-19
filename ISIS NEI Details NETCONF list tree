@@ -1,0 +1,112 @@
+Tree :-
+
+module: Cisco-IOS-XR-clns-isis-oper
+  +--ro isis
+     +--ro instances
+        +--ro instance* [instance-name]
+           +--ro neighbors 
+           |  +--ro neighbor* [] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   <neighbors />
+           |     +--ro system-id?                          xr:Osi-system-id
+           |     +--ro interface-name?                     xr:Interface-name
+           |     +--ro neighbor-system-id?                 xr:Osi-system-id
+           |     +--ro neighbor-snpa?                      xr:Isis-snpa
+           |     +--ro local-interface?                    xr:Interface-name
+           |     +--ro neighbor-state?                     Isis-adj-state
+           |     +--ro neighbor-circuit-type?              Isis-levels
+           |     +--ro neighbor-ietf-nsf-capable-flag?     uint32
+           |     +--ro neighbor-media-type?                Isis-media-class
+           |     +--ro neighbor-holdtime?                  uint32
+           |     +--ro neighbor-uptime-valid-flag?         boolean
+           |     +--ro neighbor-uptime?                    uint32
+           |     +--ro nsr-standby?                        boolean
+           |     +--ro neighbor-active-area-address*       xr:Osi-area-address
+
+(PYTHON_3.8) root@eve-ng:~/PYTHON_3.8/bin# cat netconf_isis_nei.py
+from ncclient import manager
+import xmltodict
+import xml.dom.minidom
+from pprint import pprint
+import json
+device = manager.connect(host='193.168.1.1', port=22, username='vik',
+                         password='root', hostkey_verify=False,
+                         device_params={'name': 'iosxr'}, allow_agent=False,
+                         look_for_keys=False)
+file1 = open('capability.txt','w')
+for capability in device.server_capabilities:
+    #print('*' * 50)
+    #print(capability)
+    file1.write(capability)
+
+
+
+get_filter = """
+<isis xmlns="http://cisco.com/ns/yang/Cisco-IOS-XR-clns-isis-oper">
+     <instances>
+     <instance>
+    <neighbors /> >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> space note/syntax in case of list
+    </instance>
+     </instances>
+</isis>
+
+"""
+
+
+nc_get_reply = device.get(('subtree', get_filter))
+
+A = str(nc_get_reply)
+#print(A)
+
+inst_name = json.dumps(xmltodict.parse(A)["rpc-reply"]["data"]["isis"]["instances"]["instance"]["instance-name"])
+sys_id = json.dumps(xmltodict.parse(A)["rpc-reply"]["data"]["isis"]["instances"]["instance"]["neighbors"]["neighbor"]["neighbor-system-id"])
+nei_up = json.dumps(xmltodict.parse(A)["rpc-reply"]["data"]["isis"]["instances"]["instance"]["neighbors"]["neighbor"]["neighbor-state"])
+uptimt = json.dumps(xmltodict.parse(A)["rpc-reply"]["data"]["isis"]["instances"]["instance"]["neighbors"]["neighbor"]["neighbor-uptime"])
+
+print(f" ISIS PROCESS NAME  {inst_name}")
+print(f" ISIS SYSTEM_ID  {sys_id}")
+print(f" ISIS NEI_STATE  {nei_up}")
+print(f" ISIS UP_TIME  {uptimt}")
+=======================================================================================================================
+
+<?xml version="1.0"?>
+<rpc-reply message-id="urn:uuid:a97e040c-6c86-4ce0-b450-3a1c0ff37e26" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+ <data>
+  <isis xmlns="http://cisco.com/ns/yang/Cisco-IOS-XR-clns-isis-oper">
+   <instances>
+    <instance>
+     <instance-name>ACCESS</instance-name>
+     <neighbors>
+      <neighbor>
+       <system-id>1680.1000.2000</system-id>
+       <interface-name>GigabitEthernet0/0/0/0</interface-name>
+       <neighbor-system-id>1680.1000.2000</neighbor-system-id>
+       <neighbor-snpa>aabb.cc00.2000</neighbor-snpa>
+       <local-interface>GigabitEthernet0/0/0/0</local-interface>
+       <neighbor-state>isis-adj-up-state</neighbor-state>
+       <neighbor-circuit-type>isis-levels-2</neighbor-circuit-type>
+       <neighbor-ietf-nsf-capable-flag>1</neighbor-ietf-nsf-capable-flag>
+       <neighbor-media-type>isis-media-class-lan</neighbor-media-type>
+       <neighbor-holdtime>9</neighbor-holdtime>
+       <neighbor-active-area-address>49.4011</neighbor-active-area-address>
+       <neighbor-uptime-valid-flag>true</neighbor-uptime-valid-flag>
+       <neighbor-uptime>11237</neighbor-uptime>
+       <topologies-supported>
+        <af-name>ipv4</af-name>
+        <saf-name>unicast</saf-name>
+        <vrf-name></vrf-name>
+        <topology-name></topology-name>
+       </topologies-supported>
+       <neighbor-per-address-family-data>
+        <af-name>ipv4</af-name>
+        <ipv4>
+         <next-hop>193.168.1.2</next-hop>
+         <interface-address>193.168.1.2</interface-address>
+        </ipv4>
+       </neighbor-per-address-family-data>
+       <nsr-standby>false</nsr-standby>
+      </neighbor>
+     </neighbors>
+    </instance>
+   </instances>
+  </isis>
+ </data>
+</rpc-reply>
