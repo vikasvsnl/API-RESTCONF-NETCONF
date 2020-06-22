@@ -1,3 +1,7 @@
+To Convert yang to XML
+
+pyang -f sample-xml-skeleton -o router1.xml Cisco-IOS-XR-clns-isis-oper.yang
+
 Tree :-
 
 module: Cisco-IOS-XR-clns-isis-oper
